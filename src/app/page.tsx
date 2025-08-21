@@ -10,6 +10,7 @@ export default function Home() {
   const [out, setOut] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string>("");
 
   const run = async () => {
     setLoading(true);
@@ -31,9 +32,42 @@ export default function Home() {
     }
   };
 
-  const copy = async (str:string) => {
+  // コンポーネント内に追記
+  const downloadIcs = () => {
+    if (!out?.plan) return;
+    const pad = (n:number)=>String(n).padStart(2,'0');
+    const fmtUTC = (d: Date) => {
+      const y=d.getUTCFullYear(), m=pad(d.getUTCMonth()+1), day=pad(d.getUTCDate());
+      const h=pad(d.getUTCHours()), min=pad(d.getUTCMinutes()), s=pad(d.getUTCSeconds());
+      return `${y}${m}${day}T${h}${min}${s}Z`;
+    };
+    const lines = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//todo-gemini//JP'];
+    out.plan.forEach((p:any, i:number) => {
+      if (!p.start || !p.end) return;
+      const s = new Date(p.start), e = new Date(p.end);
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:${i}-${s.getTime()}@todo-gemini`,
+        `DTSTAMP:${fmtUTC(new Date())}`,
+        `DTSTART:${fmtUTC(s)}`,
+        `DTEND:${fmtUTC(e)}`,
+        `SUMMARY:${p.title}`,
+        `DESCRIPTION:${p.type}`,
+        'END:VEVENT'
+      );
+    });
+    lines.push('END:VCALENDAR');
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url;
+    a.download = `plan-${out.date}.ics`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copy = async (str: string) => {
     await navigator.clipboard.writeText(str);
-    alert('コピーしました');
+    setToast("コピーしました");
+    setTimeout(() => setToast(""), 1600);
   };
 
   return (
@@ -60,6 +94,12 @@ export default function Home() {
         <div className="space-y-4">
           <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-3 rounded">
             {out.summary}
+            <button
+              onClick={downloadIcs}
+              className="mt-3 px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-100 hover:bg-zinc-700"
+            >
+              カレンダーに入れる（.ics）
+            </button>
           </pre>
 
           {out.results && Object.entries(out.results).map(([k, v]: any) => (
@@ -90,7 +130,14 @@ export default function Home() {
             </div>
           ))}
         </div>
+        // JSXの末尾あたりに配置
+      )}
+      {toast && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 px-3 py-2 rounded-lg bg-white text-black shadow">
+          {toast}
+        </div>
       )}
     </main>
   );
 }
+
