@@ -1,9 +1,13 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
-const TZ = process.env.TZ || 'Asia/Tokyo';
+// 修正:
+const RAW_TZ = process.env.APP_TZ ?? process.env.TZ ?? 'Asia/Tokyo';
+// Vercel が ":UTC" を入れてくることがあるので先頭の ":" を除去
+const TZ = RAW_TZ.replace(/^:/, '');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+console.log('[api/agent] TZ=', TZ, 'RAW=', process.env.TZ, 'APP_TZ=', process.env.APP_TZ);
 
 export const runtime = 'nodejs'; // Ensure this is set for serverless environments
 
